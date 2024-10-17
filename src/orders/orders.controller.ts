@@ -1,8 +1,8 @@
 import { Controller } from '@nestjs/common';
 import { MessagePattern, Payload } from '@nestjs/microservices';
 import { OrdersService } from './orders.service';
-import { CreateOrderDto } from './dto/create-order.dto';
 import { OrderTCP } from 'src/common/constants';
+import { ChangeOrderStatusDto, CreateOrderDto, SearchOrderByDto } from './dto';
 
 @Controller()
 export class OrdersController {
@@ -14,8 +14,8 @@ export class OrdersController {
   }
 
   @MessagePattern({ cmd: OrderTCP.GET_ORDERS })
-  findAll() {
-    return this.ordersService.findAll();
+  findAll(@Payload() searchOrderByDto: SearchOrderByDto) {
+    return this.ordersService.findAll(searchOrderByDto);
   }
 
   @MessagePattern({ cmd: OrderTCP.GET_ORDER })
@@ -24,7 +24,7 @@ export class OrdersController {
   }
 
   @MessagePattern({ cmd: OrderTCP.CHANGE_ORDER_STATUS })
-  changeOrderStatus(@Payload() payload) {
-    return this.ordersService.remove(payload.order_id);
+  changeOrderStatus(@Payload() changeOrderStatusDto: ChangeOrderStatusDto) {
+    return this.ordersService.changeStatus(changeOrderStatusDto);
   }
 }
