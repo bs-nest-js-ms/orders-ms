@@ -16,8 +16,9 @@ export class OrdersService {
 
   async create(createOrderDto: CreateOrderDto) {
     try {
-      const order = this.ordersRepository.create(createOrderDto);
-      return await this.ordersRepository.save(order);
+      //const order = this.ordersRepository.create(createOrderDto);
+      // return await this.ordersRepository.save(order);
+      return createOrderDto;
     } catch (error) {
       handleExceptions(error);
     }

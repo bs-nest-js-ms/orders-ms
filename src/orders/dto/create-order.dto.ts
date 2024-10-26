@@ -1,19 +1,11 @@
-import { IsEnum, IsNotEmpty, IsNumber, IsOptional, IsPositive } from 'class-validator';
-import { OrderStatus } from '../enums';
+import { Type } from 'class-transformer';
+import { ArrayMinSize, IsArray, ValidateNested } from 'class-validator';
+import { OrderItemDto } from './order-item.dto';
 
 export class CreateOrderDto {
-  @IsNumber()
-  @IsPositive()
-  @IsNotEmpty()
-  total_amount: number;
-
-  @IsNumber()
-  @IsPositive()
-  @IsNotEmpty()
-  total_items: number;
-
-  @IsEnum(OrderStatus, { message: `Possible status for status: ${OrderStatus}` })
-  @IsOptional()
-  status: OrderStatus = OrderStatus.PENDING;
-
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true }) // esto examina que lo que venga dentro del arreglo en este caso productos tengan la estructura de un producto
+  @Type(() => OrderItemDto)
+  items: OrderItemDto[];
 }
