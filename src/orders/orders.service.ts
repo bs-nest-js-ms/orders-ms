@@ -5,27 +5,54 @@ import { Repository } from 'typeorm';
 import { envs, handleExceptions } from 'src/config';
 import { ChangeOrderStatusDto, CreateOrderDto, SearchOrderByDto } from './dto';
 import { OrderStatus } from './enums';
+import { OrderItem } from './entities/order-item.entity';
 
 @Injectable()
 export class OrdersService {
 
-  constructor (
+  constructor(
     @InjectRepository(Order)
     private readonly ordersRepository: Repository<Order>,
-  ) {}
+    @InjectRepository(OrderItem)
+    private readonly orderDetailRepository: Repository<OrderItem>,
+  ) { }
 
-  async create(createOrderDto: CreateOrderDto) {
+  async create(createOrderDto: CreateOrderDto, products: any[]) {
     try {
-      //const order = this.ordersRepository.create(createOrderDto);
-      // return await this.ordersRepository.save(order);
-      return createOrderDto;
+      const total_amount = createOrderDto.items.reduce((totalAmountProductsAcc, order_item) => {
+        const product = products.find(product => product.id === order_item.product_id);
+        return product.price * order_item.quantity + totalAmountProductsAcc;
+      }, 0);
+
+      const total_items = createOrderDto.items.reduce((totalProductItemsAcc, order_item) => {
+        return totalProductItemsAcc + order_item.quantity
+      }, 0);
+
+      const order = await this.ordersRepository.create({
+        total_amount: total_amount,
+        total_items: total_items,
+        order_items: createOrderDto.items.map(order_item => this.orderDetailRepository.create({
+          product_id: order_item.product_id,
+          price: products.find(product => product.id === order_item.product_id).price,
+          quantity: order_item.quantity,
+        })),
+      });
+
+      const savedOrder = await this.ordersRepository.save(order);
+      return {
+        ...savedOrder,
+        order_items: savedOrder.order_items.map(order_item => ({
+          ...order_item,
+          name: products.find(product => product.id === order_item.product_id).name,
+        }))
+      };
     } catch (error) {
       handleExceptions(error);
     }
   }
 
   async findAll(searchOrderByDto: SearchOrderByDto) {
-    const {limit = envs.default_limit, skip = envs.default_skip} = searchOrderByDto;
+    const { limit = envs.default_limit, skip = envs.default_skip } = searchOrderByDto;
     try {
       const searchOrderQueryBuilder = this.ordersRepository.createQueryBuilder('order');
       if (searchOrderByDto.status) {
@@ -49,7 +76,7 @@ export class OrdersService {
 
   async findOne(id: string) {
     try {
-      const order = await this.ordersRepository.findOne({where: {id: id}});
+      const order = await this.ordersRepository.findOne({ where: { id: id }, relations: ['order_items'] });
       if (!order) throw new HttpException(`Order not found`, HttpStatus.NOT_FOUND);
       return order;
     } catch (error) {
@@ -59,7 +86,7 @@ export class OrdersService {
 
   async changeStatus(changeOrderStatus: ChangeOrderStatusDto) {
     try {
-      const order = await this.ordersRepository.preload({id: changeOrderStatus.order_id});
+      const order = await this.ordersRepository.preload({ id: changeOrderStatus.order_id });
 
       if (order.status === changeOrderStatus.status) return order;
       let paid_at: Date | null = null;
@@ -70,8 +97,8 @@ export class OrdersService {
 
       if (!order) throw new HttpException(`Order ${changeOrderStatus.order_id} not found`, HttpStatus.NOT_FOUND);
 
-      return await this.ordersRepository.save({...order, status: changeOrderStatus.status, paid_at: paid_at});
-      
+      return await this.ordersRepository.save({ ...order, status: changeOrderStatus.status, paid_at: paid_at });
+
     } catch (error) {
       handleExceptions(error);
     }

@@ -1,16 +1,30 @@
-import { Controller } from '@nestjs/common';
-import { MessagePattern, Payload } from '@nestjs/microservices';
+import { Controller, Inject } from '@nestjs/common';
+import { ClientProxy, MessagePattern, Payload, RpcException } from '@nestjs/microservices';
 import { OrdersService } from './orders.service';
-import { OrderTCP } from 'src/common/constants';
+import { MicroservicesEnum, OrderTCP, ProductTCP } from 'src/common/constants';
 import { ChangeOrderStatusDto, CreateOrderDto, SearchOrderByDto } from './dto';
+import { catchError, firstValueFrom } from 'rxjs';
 
 @Controller()
 export class OrdersController {
-  constructor(private readonly ordersService: OrdersService) {}
+  constructor(
+    @Inject(MicroservicesEnum.PRODUCT_MS)
+    private readonly productsClient: ClientProxy,
+    private readonly ordersService: OrdersService,
+  ) { }
 
   @MessagePattern({ cmd: OrderTCP.CREATE_ORDER })
-  create(@Payload() createOrderDto: CreateOrderDto) {
-    return this.ordersService.create(createOrderDto);
+  async create(@Payload() createOrderDto: CreateOrderDto) {
+    const products_ids = createOrderDto.items.map(item => item.product_id);
+
+    const products: any[] = await firstValueFrom(this.productsClient.send({ cmd: ProductTCP.FIND_PRODUCTS_BY_IDS }, { ids: products_ids })
+      .pipe(
+        catchError((error) => {
+          throw new RpcException(error);
+        }),
+      ));
+
+    return this.ordersService.create(createOrderDto, products);
   }
 
   @MessagePattern({ cmd: OrderTCP.GET_ORDERS })
@@ -19,8 +33,21 @@ export class OrdersController {
   }
 
   @MessagePattern({ cmd: OrderTCP.GET_ORDER })
-  findOne(@Payload() payload) {
-    return this.ordersService.findOne(payload.order_id);
+  async findOne(@Payload() payload) {
+    const order = await this.ordersService.findOne(payload.order_id);
+    const productsIds: string[] = order.order_items.map(order_item => order_item.product_id);
+    const products: any[] = await firstValueFrom(this.productsClient.send({ cmd: ProductTCP.FIND_PRODUCTS_BY_IDS }, { ids: productsIds }).pipe(
+      catchError((error) => {
+        throw new RpcException(error);
+      }),
+    ));;
+    return {
+      ...order,
+      order_items: order.order_items.map(order_item => ({
+        ...order_item,
+        name: products.find(product => product.id === order_item.product_id).name,
+      })),
+    };
   }
 
   @MessagePattern({ cmd: OrderTCP.CHANGE_ORDER_STATUS })

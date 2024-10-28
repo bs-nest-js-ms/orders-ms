@@ -28,6 +28,6 @@ export class Order {
   @UpdateDateColumn()
   updated_at: Date;
 
-  @OneToMany(() => OrderItem, (orderItem) => orderItem.order)
+  @OneToMany(() => OrderItem, (orderItem) => orderItem.order, {cascade: true})
   order_items: OrderItem[]; 
 }
