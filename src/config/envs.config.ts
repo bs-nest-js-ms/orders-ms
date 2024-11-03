@@ -9,8 +9,9 @@ interface EnvVars {
   POSTGRES_PASSWORD: string
   POSTGRES_DB: string;
   POSTGRES_PORT: number;
-  PRODUCTS_MICROSERVICE_HOST: string;
-  PRODUCTS_MICROSERVICE_PORT: number;
+  // PRODUCTS_MICROSERVICE_HOST: string;
+  // PRODUCTS_MICROSERVICE_PORT: number;
+  NATS_SERVERS: string;
 }
 
 const envSchema = joi
@@ -22,12 +23,16 @@ const envSchema = joi
     POSTGRES_PASSWORD: joi.string().required(),
     POSTGRES_DB: joi.string().required(),
     POSTGRES_PORT: joi.number().required(),
-    PRODUCTS_MICROSERVICE_HOST: joi.string(),
-    PRODUCTS_MICROSERVICE_PORT: joi.number(),
+    // PRODUCTS_MICROSERVICE_HOST: joi.string(),
+    // PRODUCTS_MICROSERVICE_PORT: joi.number(),
+    NATS_SERVERS: joi.array().items(joi.string()).required(),
   })
   .unknown(true);
 
-const { error, value } = envSchema.validate(process.env);
+const { error, value } = envSchema.validate({
+  ...process.env,
+  NATS_SERVERS: process.env.NATS_SERVERS.split(','),
+});
 
 if (error) throw new Error(`Environments Config Validation error: ${error}`);
 
@@ -41,6 +46,7 @@ export const envs = {
   postgres_password: envVars.POSTGRES_PASSWORD,
   postgres_db: envVars.POSTGRES_DB,
   postgres_port: envVars.POSTGRES_PORT,
-  products_microservice_host: envVars.PRODUCTS_MICROSERVICE_HOST,
-  products_microservice_port: envVars.PRODUCTS_MICROSERVICE_PORT,
+  // products_microservice_host: envVars.PRODUCTS_MICROSERVICE_HOST,
+  // products_microservice_port: envVars.PRODUCTS_MICROSERVICE_PORT,
+  nats_servers: envVars.NATS_SERVERS,
 };

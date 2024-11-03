@@ -1,15 +1,15 @@
 import { Controller, Inject } from '@nestjs/common';
 import { ClientProxy, MessagePattern, Payload, RpcException } from '@nestjs/microservices';
 import { OrdersService } from './orders.service';
-import { MicroservicesEnum, OrderTCP, ProductTCP } from 'src/common/constants';
+import { NATS_SERVICE, OrderTCP, ProductTCP } from 'src/common/constants';
 import { ChangeOrderStatusDto, CreateOrderDto, SearchOrderByDto } from './dto';
 import { catchError, firstValueFrom } from 'rxjs';
 
 @Controller()
 export class OrdersController {
   constructor(
-    @Inject(MicroservicesEnum.PRODUCT_MS)
-    private readonly productsClient: ClientProxy,
+    @Inject(NATS_SERVICE)
+    private readonly client: ClientProxy,
     private readonly ordersService: OrdersService,
   ) { }
 
@@ -17,7 +17,7 @@ export class OrdersController {
   async create(@Payload() createOrderDto: CreateOrderDto) {
     const products_ids = createOrderDto.items.map(item => item.product_id);
 
-    const products: any[] = await firstValueFrom(this.productsClient.send({ cmd: ProductTCP.FIND_PRODUCTS_BY_IDS }, { ids: products_ids })
+    const products: any[] = await firstValueFrom(this.client.send({ cmd: ProductTCP.FIND_PRODUCTS_BY_IDS }, { ids: products_ids })
       .pipe(
         catchError((error) => {
           throw new RpcException(error);
@@ -36,7 +36,7 @@ export class OrdersController {
   async findOne(@Payload() payload) {
     const order = await this.ordersService.findOne(payload.order_id);
     const productsIds: string[] = order.order_items.map(order_item => order_item.product_id);
-    const products: any[] = await firstValueFrom(this.productsClient.send({ cmd: ProductTCP.FIND_PRODUCTS_BY_IDS }, { ids: productsIds }).pipe(
+    const products: any[] = await firstValueFrom(this.client.send({ cmd: ProductTCP.FIND_PRODUCTS_BY_IDS }, { ids: productsIds }).pipe(
       catchError((error) => {
         throw new RpcException(error);
       }),

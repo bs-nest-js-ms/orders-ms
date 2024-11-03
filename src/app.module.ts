@@ -5,7 +5,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { envs } from './config';
 @Module({
   imports: [
-    OrdersModule, 
+    OrdersModule,
     CommonModule,
     TypeOrmModule.forRoot({
       type: 'postgres',
@@ -22,4 +22,4 @@ import { envs } from './config';
   controllers: [],
   providers: [],
 })
-export class AppModule {}
+export class AppModule { }
