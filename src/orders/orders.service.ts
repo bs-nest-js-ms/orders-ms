@@ -1,11 +1,12 @@
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Inject, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Order } from './entities/order.entity';
 import { Repository } from 'typeorm';
 import { envs, handleExceptions } from 'src/config';
-import { ChangeOrderStatusDto, CreateOrderDto, SearchOrderByDto } from './dto';
+import { ChangeOrderStatusDto, CreateOrderDto, PaidOrderDto, SearchOrderByDto } from './dto';
 import { OrderStatus } from './enums';
 import { OrderItem } from './entities/order-item.entity';
+import { OrderReceipt } from './entities/order-receipt.entity';
 
 @Injectable()
 export class OrdersService {
@@ -15,6 +16,8 @@ export class OrdersService {
     private readonly ordersRepository: Repository<Order>,
     @InjectRepository(OrderItem)
     private readonly orderDetailRepository: Repository<OrderItem>,
+    @InjectRepository(OrderReceipt)
+    private readonly orderReceiptRepository: Repository<OrderReceipt>,
   ) { }
 
   async create(createOrderDto: CreateOrderDto, products: any[]) {
@@ -99,6 +102,29 @@ export class OrdersService {
 
       return await this.ordersRepository.save({ ...order, status: changeOrderStatus.status, paid_at: paid_at });
 
+    } catch (error) {
+      handleExceptions(error);
+    }
+  }
+
+  async paidOrder(paidOrderDto: PaidOrderDto) {
+    try {
+
+      // Actualizamos orden
+      const order = await this.ordersRepository.findOneBy({id: paidOrderDto.order_id});
+      if (!order) throw new HttpException(`Order ${paidOrderDto.order_id} not found`, HttpStatus.NOT_FOUND);
+
+      // Creamos detalle en la relacion 1:1
+      const orderPaid = await this.ordersRepository.save({
+        ...order, 
+        status: OrderStatus.PAID, 
+        stripe_charge_id: paidOrderDto.stripe_charge_id
+      });
+      if (orderPaid.stripe_charge_id.trim().length !== 0 && orderPaid.status === OrderStatus.PAID) {
+        const orderReceipt = await this.orderReceiptRepository.create({order: orderPaid, receipt_url: paidOrderDto.receipt_url});
+        await this.orderReceiptRepository.save(orderReceipt);
+      }
+      return orderPaid;
     } catch (error) {
       handleExceptions(error);
     }

@@ -1,6 +1,7 @@
-import { Column, CreateDateColumn, Entity, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, OneToMany, OneToOne, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 import { OrderStatus } from '../enums';
 import { OrderItem } from './order-item.entity';
+import { OrderReceipt } from './order-receipt.entity';
 
 @Entity({ name: 'orders' })
 export class Order {
@@ -22,6 +23,9 @@ export class Order {
   @Column({ type: 'timestamp', nullable: true })
   paid_at: Date;
 
+  @Column({ type: 'varchar', nullable: true})
+  stripe_charge_id: string;
+
   @CreateDateColumn()
   created_at: Date;
 
@@ -30,4 +34,7 @@ export class Order {
 
   @OneToMany(() => OrderItem, (orderItem) => orderItem.order, {cascade: true})
   order_items: OrderItem[]; 
+
+  @OneToOne(() => OrderReceipt, (orderReceipt) => orderReceipt.order) 
+  order_receipt: OrderReceipt;
 }
